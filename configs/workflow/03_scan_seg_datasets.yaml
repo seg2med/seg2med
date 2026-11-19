@@ -1,6 +1,6 @@
 # Stage 1: set SEG2MED_DATA_ROOT before running this example.
 # python -m seg2med_workflow.prepare_datasets --print-list
-# python -m seg2med_workflow.prepare_datasets --config configs\workflow\03_scan_seg_datasets.yaml
+# python -m seg2med_workflow.prepare_datasets --config configs/workflow/03_scan_seg_datasets.yaml
 data_root: /absolute/path/to/seg2med_datasets
 
 datasets:
@@ -33,7 +33,7 @@ datasets:
   #   patient_id_regex: "/(?P<id>[^/]+)/[^/]+\\.nii\\.gz$"
 
 output:
-  directory: datacsv\seg2med_dataset
+  directory: datacsv/seg2med_dataset
   catalog: seg2med_seg.csv
   parquet: null
   check_paths: false

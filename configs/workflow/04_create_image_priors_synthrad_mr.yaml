@@ -19,17 +19,17 @@ absolute_paths: true
 
 splits:
   train:
-    catalog: datacsv\synthrad_mr\seg2med_seg_train.csv
+    catalog: datacsv/synthrad_mr/seg2med_seg_train.csv
     output_dir: seg2med_dataset
-    output_csv: datacsv\synthrad_mr\seg2med_prior_train.csv
+    output_csv: datacsv/synthrad_mr/seg2med_prior_train.csv
     write_excel: false
   validation:
-    catalog: datacsv\synthrad_mr\seg2med_seg_validation.csv
+    catalog: datacsv/synthrad_mr/seg2med_seg_validation.csv
     output_dir: seg2med_dataset
-    output_csv: datacsv\synthrad_mr\seg2med_prior_validation.csv
+    output_csv: datacsv/synthrad_mr/seg2med_prior_validation.csv
     write_excel: false
   test:
-    catalog: datacsv\synthrad_mr\seg2med_seg_test.csv
+    catalog: datacsv/synthrad_mr/seg2med_seg_test.csv
     output_dir: seg2med_dataset
-    output_csv: datacsv\synthrad_mr\seg2med_prior_test.csv
+    output_csv: datacsv/synthrad_mr/seg2med_prior_test.csv
     write_excel: false

@@ -14,8 +14,9 @@ dependencies:
   - pip
   - pip:
     - totalsegmentator
-    - monai-generative
-    - monai
+    - monai-generative==0.2.3
+    - monai<1.6
+    - numpy<2
     - tqdm
     - opencv-python
     - charset-normalizer==3.3.2

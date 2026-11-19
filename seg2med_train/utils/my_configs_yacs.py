@@ -156,27 +156,6 @@ def init_cfg(yaml_file=None):
     cfg.gen.in_channels_G=1
 
     # ------------------ #
-    # options for RefineNet
-    # ------------------ #
-    cfg.refineNet = CN()
-    cfg.refineNet.type='resUnet' # 'RefineNet'
-    cfg.refineNet.num_channels=(8,16,32,64,128) #(2,4,8,16,32) #(8,16,32,64,128) # notice k=(32,32,None) in DivisiblePadd
-    cfg.refineNet.strides= (2, 2, 2, 2) # (2, 2, 2, 2) or (1, 1, 1, 1)
-    cfg.refineNet.num_res_units=2
-    cfg.refineNet.act = 'SIGMOID' # ELU, RELU, LEAKYRELU, PRELU, RELU6, SELU, CELU, GELU, SIGMOID, TANH, SOFTMAX, LOGSOFTMAX, SWISH, MEMSWISH, MISH, GEGLU
-    cfg.refineNet.last_act=None
-    cfg.refineNet.kernel_size=3
-    cfg.refineNet.up_kernel_size=3
-    cfg.refineNet.norm='INSTANCE' # 'BATCH' or 'INSTANCE' or 'none'
-    cfg.refineNet.dropout=0.2
-    cfg.refineNet.bias=True
-    cfg.refineNet.refine_criterion='MSE'
-    cfg.refineNet.in_channels_G=1
-    cfg.refineNet.output_min=0
-    cfg.refineNet.output_max=1
-    cfg.refineNet.load_refineNet=True
-
-    # ------------------ #
     # options for D
     # ------------------ #
     cfg.disc = CN()

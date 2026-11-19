@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import glob
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from seg2med_workflow.config import ConfigError, as_bool, load_yaml, resolve_path
 
-NIFTI_EXTENSIONS = (".nii", ".nii.gz", ".nrrd")
 TISSUE_TASKS = {"tissue_types", "tissue_types_mr"}
 
 

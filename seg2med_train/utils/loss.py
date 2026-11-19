@@ -118,10 +118,6 @@ class TrimmedLoss(nn.Module):
         trimmed_errors = errors_sorted[trim_count:-trim_count]
         return trimmed_errors.mean()
 
-class LogCoshLoss(nn.Module):
-    #The log-cosh loss is less sensitive to outliers than the MSE loss. It is also smoother for the optimizer.
-    def forward(self, input, target):
-        return torch.mean(torch.log(torch.cosh(input - target)))
 
 class TVLoss(nn.Module):
     def __init__(self, tv_loss_weight=1.0):

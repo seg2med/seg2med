@@ -1,6 +1,6 @@
 # Stage 1: set SEG2MED_DATA_ROOT before running this example.
 # python -m seg2med_workflow.prepare_datasets --print-list
-# python -m seg2med_workflow.prepare_datasets --config configs\workflow\03_scan_seg_datasets_synthrad_ct.yaml
+# python -m seg2med_workflow.prepare_datasets --config configs/workflow/03_scan_seg_datasets_synthrad_ct.yaml
 data_root: /absolute/path/to/seg2med_datasets
 
 datasets:
@@ -20,7 +20,7 @@ datasets:
   #   patient_id_regex: "/(?P<id>[^/]+)/[^/]+\\.nii\\.gz$"
 
 output:
-  directory: datacsv\synthrad_ct
+  directory: datacsv/synthrad_ct
   catalog: seg2med_seg.csv
   parquet: null
   check_paths: false

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 
 class ConfigError(ValueError):
@@ -29,13 +29,6 @@ def load_yaml(path: str | Path) -> tuple[dict[str, Any], Path]:
     if not isinstance(data, dict):
         raise ConfigError(f"The YAML root must be a mapping: {config_path}")
     return data, config_path.parent
-
-
-def require_mapping(config: Mapping[str, Any], key: str) -> dict[str, Any]:
-    value = config.get(key)
-    if not isinstance(value, dict):
-        raise ConfigError(f"'{key}' must be a mapping.")
-    return value
 
 
 def resolve_path(
