@@ -11,7 +11,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from generative.networks.nets import DiffusionModelUNet
 from generative.networks.schedulers import DDPMScheduler
 import pdb
-import cv2
 from ...networks.ddpm.transformDiffinferer import transformDiffusionInferer, transformDiffusionInfererWithClass
 from ...networks.results_eval import plot_learning_curves, output_sample_results
 from ...networks.basefunc import LossTracker, EarlyStopping
@@ -1105,80 +1104,3 @@ class DiffusionModel_multimodal(DiffusionModel): #(nn.Module)
         self.inputs_batch = self.inputs_batch.detach().cpu()
         outputs_batch = outputs_batch.detach().cpu()   
         return outputs_batch
-
-def resize_with_zoom_and_pad(source, zoom_factor, resized_size):
-    # Step 1: 缩放
-    h, w = source.shape[:2]
-    zoomed_h, zoomed_w = int(h * zoom_factor), int(w * zoom_factor)
-    zoomed = cv2.resize(source, (zoomed_w, zoomed_h), interpolation=cv2.INTER_AREA)
-
-    final_h, final_w = resized_size
-    final = np.zeros((final_h, final_w), dtype=zoomed.dtype)
-
-    # Step 2: 中心裁剪或填充
-    # 计算 zoomed 和 final 的差异
-    dh = final_h - zoomed_h
-    dw = final_w - zoomed_w
-
-    # 如果需要填充
-    pad_top = max(dh // 2, 0)
-    pad_left = max(dw // 2, 0)
-
-    # 如果需要裁剪
-    crop_top = max(-dh // 2, 0)
-    crop_left = max(-dw // 2, 0)
-
-    # 裁剪后 zoomed 的尺寸
-    cropped = zoomed[crop_top:crop_top + min(final_h, zoomed_h),
-                     crop_left:crop_left + min(final_w, zoomed_w)]
-
-    # 插入到最终图像中
-    insert_h, insert_w = cropped.shape[:2]
-    final[pad_top:pad_top + insert_h, pad_left:pad_left + insert_w] = cropped
-
-    return final
-
-
-
-class DiffusionModel_multimodal_for_app(DiffusionModel_multimodal):
-    def inference(self, source, modality, streamlit_callback):
-        self.init_diffusion()
-        self.set_inference_parameters(create_folder=False)
-        self.model.eval()
-        
-        source = source.copy()
-        source = source.astype(float)
-        resized_size = self.config.dataset.resized_size[:2]
-        zoom_factor= self.config.dataset.zoom[0] 
-        
-        
-        prior_modality_norm_dict = {
-            0: {'min': -300, 'max': 700},   # CT WW=1000, WL=200
-            1: {'min': 0, 'max': 9},       # T1
-            2: {'min': 0, 'max': 28},       # T2
-            3: {'min': 0, 'max': 9},       # VIBE-IN
-            4: {'min': 0, 'max': 10},       # VIBE-OPP
-            5: {'min': 0, 'max': 6},       # DIXON
-        }
-        prior_params = prior_modality_norm_dict[modality]
-        x_prior = np.clip(source, prior_params['min'], prior_params['max'])
-        x_prior = (x_prior - prior_params['min']) / (prior_params['max'] - prior_params['min'])
-        
-        x_prior = resize_with_zoom_and_pad(x_prior, zoom_factor=zoom_factor, resized_size=resized_size)
-        
-        print("input range:", np.min(source), np.max(source))
-        print("input size:", x_prior.shape)
-        print("normalized range:", np.min(x_prior), np.max(x_prior))
-        
-        self.inputs_batch_prepared = torch.from_numpy(np.expand_dims(np.expand_dims(x_prior, axis=0), axis=0)).float().to(self.device)
-        self.noise = generate_noise(self.config.ddpm.noise_type, self.inputs_batch_prepared, self.device)
-        self.scheduler.set_timesteps(num_inference_steps=self.num_inference_steps)
-        modality = torch.tensor([modality], dtype=torch.long).to(self.device)
-        print()
-        with autocast(**autocast_kwargs):
-            outputs_batch, self.intermediates = self.model_inferer_sample(modality, streamlit_callback)
-        return outputs_batch
-
-
-
-
