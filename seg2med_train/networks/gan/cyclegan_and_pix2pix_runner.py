@@ -4,8 +4,6 @@ from seg2med_train.networks.gan.cyclegan_and_pix2pix import train as train_cycle
 from seg2med_train.networks.gan.cyclegan_and_pix2pix import test as test_cycleGAN_pix2pix
 
 import importlib.util
-import subprocess
-import sys
 
 @register_model('cycle_gan')
 @register_model('pix2pix')
@@ -21,15 +19,15 @@ class CycleGAN_pix2pix_Runner:
         self.train_module = train_cycleGAN_pix2pix
         self.test_module = test_cycleGAN_pix2pix
         
-        self._check_and_install_dependencies(['visdom', 'dominate'])
+        self._check_dependencies(['visdom', 'dominate'])
 
-    def _check_and_install_dependencies(self, packages):
-        for package in packages:
-            if importlib.util.find_spec(package) is None:
-                print(f"Installing missing package: {package}")
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-            else:
-                print(f"Package '{package}' is already installed.")
+    def _check_dependencies(self, packages):
+        missing = [p for p in packages if importlib.util.find_spec(p) is None]
+        if missing:
+            raise ImportError(
+                f"pix2pix/CycleGAN needs {', '.join(missing)}; "
+                "install the extra with: pip install -e '.[gan]'"
+            )
 
     def train(self):
         self.train_module.run_(
