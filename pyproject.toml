@@ -11,9 +11,9 @@ license = {file = "LICENSE"}
 requires-python = ">=3.10"
 # torch / torchvision are installed separately for the local CUDA version (see environment.yaml).
 dependencies = [
-    "monai",
-    "monai-generative",
-    "numpy",
+    "monai<1.6",  # monai 1.6 removed monai.config.IgniteInfo, which monai-generative imports
+    "monai-generative==0.2.3",  # archived upstream (Project-MONAI/GenerativeModels, 2025-02-07)
+    "numpy<2",
     "pandas",
     "nibabel",
     "pyyaml",
