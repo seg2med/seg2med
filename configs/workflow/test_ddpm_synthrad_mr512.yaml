@@ -1,10 +1,10 @@
 # Fresh training. For full resume set train.resume: true and ckpt_path: .../last.pt.
-# python -m seg2med_train.train --config configs\workflow\test_ddpm_synthrad_mr.yaml
+# python -m seg2med_train.train --config configs/workflow/test_ddpm_synthrad_mr512.yaml
 model_name: ddpm2d_seg2med
 dataset_name: image_prior_csv
 mode: test
 GPU_ID: [1]
-ckpt_path: logs\20261014_234148_961613_ddpm2d_seg2med_mr512\saved_models\last.pt
+ckpt_path: logs/20261014_234148_961613_ddpm2d_seg2med_mr512/saved_models/last.pt
 dataset:
   data_dir: '/absolute/path/to/seg2med_datasets'
   train_csv: null

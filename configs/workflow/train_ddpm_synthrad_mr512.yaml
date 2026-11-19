@@ -1,5 +1,5 @@
 # Fresh training. For full resume set train.resume: true and ckpt_path: .../last.pt.
-# python -m seg2med_train.train --config configs\workflow\train_ddpm_synthrad_mr512.yaml
+# python -m seg2med_train.train --config configs/workflow/train_ddpm_synthrad_mr512.yaml
 model_name: ddpm2d_seg2med
 dataset_name: image_prior_csv
 mode: train
