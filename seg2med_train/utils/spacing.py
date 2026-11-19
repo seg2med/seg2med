@@ -2,13 +2,7 @@ from monai.transforms import (
     Compose,
     LoadImage,
     EnsureChannelFirst,
-    Spacing,
     Spacingd,
-    Zoom,
-    SpatialResample,
-    Resample,
-    Resize,
-    AffineGrid,
     ResizeWithPadOrCrop,
 )
 import torch
@@ -16,7 +10,6 @@ from torch.utils.data import DataLoader
 import monai
 import os
 import glob
-import SimpleITK as sitk
 
 import torch
 import torch.nn.functional as F

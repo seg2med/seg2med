@@ -1,5 +1,4 @@
 import os
-import time
 import numpy as np
 import monai
 import torch
@@ -10,7 +9,6 @@ from monai.transforms.utils import allow_missing_keys_mode
 from torch.nn.parallel import DistributedDataParallel as DDP
 from generative.networks.nets import DiffusionModelUNet
 from generative.networks.schedulers import DDPMScheduler
-import pdb
 from ...networks.ddpm.transformDiffinferer import transformDiffusionInferer, transformDiffusionInfererWithClass
 from ...networks.results_eval import plot_learning_curves, output_sample_results
 from ...networks.basefunc import LossTracker, EarlyStopping
@@ -193,22 +191,6 @@ def margin_cossim_loss(z, modality, margin=0.3):
     return loss
 
 
-def volume_group_generator(train_loader, volume_batch_size, source_indicator, target_indicator):
-    """
-    每次从 train_loader 取 volume_batch_size 个 volume，组成一个 group。
-    避免一次性 list(train_loader)，节省内存。
-    """
-    group = []
-    for volume in train_loader:
-        group.append(volume)
-        print("source pathes: ", volume[source_indicator])
-        print("target pathes: ", volume[target_indicator])
-        if len(group) == volume_batch_size:
-            yield group
-            group = []
-    if group:
-        yield group  # 最后一组不足 volume_batch_size 也返回
-
 def checkdata(loader,inputtransforms,output_for_check=1,save_folder='./logs/test_images'):
     from PIL import Image
     import matplotlib
@@ -258,41 +240,6 @@ def checkdata(loader,inputtransforms,output_for_check=1,save_folder='./logs/test
                 plt.close(fig_ct)
 
 import torch.nn as nn
-def weights_init(m):
-    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-        torch.nn.init.normal_(m.weight, 0.0, 0.02)
-    if isinstance(m, nn.BatchNorm2d):
-        torch.nn.init.normal_(m.weight, 0.0, 0.02)
-        torch.nn.init.constant_(m.bias, 0)
-def load_pretrained_model(model, opt, pretrained_path=None):
-    if pretrained_path is not None and os.path.exists(pretrained_path):
-        latest_ckpt=pretrained_path
-        loaded_state = torch.load(latest_ckpt)
-        print(f'use pretrained model: {latest_ckpt}') 
-        if 'epoch' in loaded_state:
-            init_epoch=loaded_state["epoch"] # load or manually set
-            print(f'continue from epoch {init_epoch}') 
-            #init_epoch = int(input('Enter epoch number: '))
-        else:
-            print('no epoch information in the checkpoint file')
-            init_epoch = int(input('Enter epoch number: '))
-        
-        if 'global_step' in loaded_state:
-            init_step=loaded_state["global_step"] # load or manually set
-            print(f'continue from step {init_step}') 
-        else:
-            print('no epoch information in the checkpoint file')
-            init_step = int(input('Enter epoch number: '))
-
-        model.load_state_dict(loaded_state["model"]) #
-        opt.load_state_dict(loaded_state["opt"])
-    else:
-        init_epoch=0
-        init_step=0
-        #model = model.apply(weights_init)
-        print(f'start new training') 
-
-    return model, opt, init_epoch, init_step
 def arrange_images_assemble(img_assemble,
                    titles,
                    saved_name,
@@ -540,22 +487,6 @@ class DiffusionModel: #(nn.Module)
             intermediates = None
         return image, intermediates
     
-    def _get_first_information(self, debatched_volume):
-        inputs_first = debatched_volume[self.config.dataset.indicator_A]
-        targets_first = debatched_volume[self.config.dataset.indicator_B]
-        patient_ID_first = debatched_volume['patient_ID']
-        ad_first = debatched_volume['Aorta_diss']
-        modality_first = debatched_volume['modality']
-        print('\n first input volume shape:', inputs_first.shape)
-        print('first target volume shape:', targets_first.shape)
-        print('first patient ID:', patient_ID_first)
-        print('first ad:', ad_first)
-        print('first modality:', modality_first)
-        print('\n input shape:', inputs_first.shape)
-        def print_all_infos(data, title):
-            print(f'{title}, min,max,mean,std: ', torch.min(data),torch.max(data),torch.mean(data),torch.std(data))
-        print_all_infos(inputs_first, 'sources')
-        print_all_infos(targets_first, 'targets')
 
     def _get_modality_condition(self, batch):
         # form the condition into size of (B,1,1,1)
@@ -904,41 +835,6 @@ class DiffusionModel_multimodal(DiffusionModel): #(nn.Module)
 
         self.num_class_embeds = self.config.ddpm.num_class_embeds
     
-    def expand_modality(self):
-        # if you want to add another class in num_class_embeds, the model structure of checkpoint, namely the class_embedding module inside it should be changed
-        # 假设 time_embed_dim 是之前使用的
-
-        # 1. 加载 checkpoint
-        checkpoint = torch.load("path_to_checkpoint.pth")
-
-        # 寻找 class_embedding 的 key
-        target_key = None
-        for k in checkpoint['model'].keys():
-            if 'class_embedding.weight' in k:
-                target_key = k
-                break
-
-        if target_key is None:
-            raise ValueError("Could not find class_embedding.weight in checkpoint")
-
-        print(f"Found class embedding key: {target_key}")
-
-        # 原有权重
-        old_weight = checkpoint['model'][target_key]  # shape [6, embed_dim]
-
-        # 获取维度
-        num_old_classes, embed_dim = old_weight.shape
-        num_new_classes = num_old_classes + 1  # 增加1类
-
-        # 创建新的 nn.Embedding
-        new_embedding = nn.Embedding(num_new_classes, embed_dim)
-
-        # 拷贝旧的权重
-        with torch.no_grad():
-            new_embedding.weight[:num_old_classes] = old_weight
-
-        # 替换 checkpoint 中的值
-        checkpoint['model'][target_key] = new_embedding.weight
 
         # 保存或加载
         # torch.save(checkpoint, "expanded_checkpoint.pth")

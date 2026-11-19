@@ -1,5 +1,5 @@
 from __future__ import annotations
-from monai.transforms import Compose, LoadImaged, EnsureChannelFirstd, CenterSpatialCropd, Rotate90d, ResizeWithPadOrCropd, DivisiblePadd, Zoomd, Spacingd, SqueezeDimd, ThresholdIntensityd, NormalizeIntensityd, ShiftIntensityd, ScaleIntensityd
+from monai.transforms import Compose, LoadImaged, EnsureChannelFirstd, CenterSpatialCropd, Rotate90d, ResizeWithPadOrCropd, DivisiblePadd, Zoomd, Spacingd, SqueezeDimd
 from monai.data import PatchIterd, GridPatchDataset, DistributedSampler
 from monai.data import Dataset
 from torch.utils.data import DataLoader
@@ -258,9 +258,6 @@ def convert_xcat_to_ct_mask(xcat_image, mapping_csv, tolerance=0.5):
         print(f"Processed {organ} with HU range [{lower_bound}, {upper_bound}] to mask value {mask_value}")
     return ct_mask
 
-def make_dataset_modality():
-    images = []
-    return images
 
 class ABCLoader(ABC):
     @abstractmethod
@@ -425,7 +422,6 @@ def load_semantic_prior_csv(opt, my_paths):
         source_column=SCHEMA.PRIOR_SEMANTIC,
         normalize_source=False,
     )
-
 
 
 class PriorImageCsvLoader(BaseDataLoader):
