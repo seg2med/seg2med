@@ -160,6 +160,3 @@ def arrange_3_histograms(source, target, output, saved_name , dpi=300,
     plt.tight_layout()
     plt.savefig(saved_name.replace('histogram','boxplot'), dpi=dpi)
     plt.close()
-
-
- 

@@ -407,4 +407,3 @@ def plot_learning_curves(epoch_gen_loss_list, output_path, x_unit='batches', met
     plt.savefig(f"{output_path}/diffusion_training_{metric}.png")
     plt.close()
     #plt.show()
-
