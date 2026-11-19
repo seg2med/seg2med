@@ -47,7 +47,6 @@ gan_with_ddpm_version1
 
 gan_with_ddpm_version2
 - 2023 1129 add unet.py as basic unet structure
-- 2023 1201 add unetdual.py to train bones and tissues map separately
 - 2023 1204 add enhancedMAE, weightedMAE, enhancedWeightedMAE losses for training
 - 2023 1212 train pix2pix-Attention 
 

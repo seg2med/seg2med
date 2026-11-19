@@ -672,19 +672,6 @@ def arrange_3_histograms(source, target, output, saved_name , dpi=300,
     plt.savefig(saved_name.replace('histogram','boxplot'), dpi=dpi)
     plt.close()
 
-def arrange_4_histograms(real1,fake1, real2, fake2, saved_name , dpi=300):
-    # Plot histograms
-    fig, axs = plt.subplots(4, 1, figsize=(10, 8))
-    plot_histogram(real1, f'Histogram for real1', axs[0],color='red')
-    plot_histogram(fake1, f'Histogram for fake1', axs[1],color='red')
-    plot_histogram(real2, f'Histogram for real2', axs[2],color='green')
-    plot_histogram(fake2, f'Histogram for fake2', axs[3],color='green')
-    # Show and save the histogram figure
-    plt.tight_layout()
-    plt.savefig(saved_name, dpi=dpi)
-    plt.close(fig)
-
-# save output images
 def sample_images(model, input, label,slice_idx, epoch, batch_i, saved_folder, model_name='model'):
     fake = model(input)
     input_imgs=input.cpu().detach().numpy()
