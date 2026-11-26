@@ -211,6 +211,10 @@ def init_cfg(yaml_file=None):
     cfg.ddpm.beta_start = 0.0001
     cfg.ddpm.beta_end = 0.02
     cfg.ddpm.clip_sample = True
+    # Clamp bounds applied to pred_original_sample inside the scheduler step loop and at
+    # volume save time. [-1, 1] matches upstream MONAI; [0, 1] is the contract for
+    # models whose loader target lives on [0, 1] (P030 lesion prior chains).
+    cfg.ddpm.clip_sample_range = [-1.0, 1.0]
     cfg.ddpm.use_ema = True # inference loads a checkpoint's ema_model weights when present
 
     cfg.ldm=CN()
@@ -251,6 +255,7 @@ def init_cfg(yaml_file=None):
     # slice-to-slice brightness flicker of generated volumes.
     cfg.validation.volume_eval=CN()
     cfg.validation.volume_eval.enabled=False
+    cfg.validation.volume_eval.sampler="ddim" # "ddim" or "ddpm" (ddpm requires steps == num_train_timesteps)
     cfg.validation.volume_eval.epoch_interval=2
     cfg.validation.volume_eval.num_volumes=4
     cfg.validation.volume_eval.volume_ids=[]

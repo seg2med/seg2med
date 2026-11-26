@@ -19,6 +19,7 @@ from ...networks.model_registry import register_model
 from ...Dataloader import patch_2d_from_single_volume, decode_dataset_from_single_volume_batch 
 from ...slice_export import InferenceSliceWriter
 from .seeded_sampling import NoiseStreams, seeded_sample
+from .ranged_scheduler import clip_sample_range
 
 
 def _file_sha256(path):
@@ -818,6 +819,7 @@ class DiffusionModel: #(nn.Module)
             "z_indices": list(range(depth)), "array_layout": "(z, H, W) = NIfTI array transposed (2, 0, 1)",
             "sampler": type(self.scheduler).__name__, "num_train_timesteps": self.num_train_timesteps,
             "num_inference_steps": self.num_inference_steps,
+            "clip_sample_range": clip_sample_range(self.scheduler),
             "precision": "network forward under autocast; initial/step noise and scheduler.step in float32",
             "seed_rule": "sha256(utf-8 '|'.join(parts))[:8] big-endian mod 2**63; "
                          "init parts (namespace,'init',patient,volume,seed_label,z); "
