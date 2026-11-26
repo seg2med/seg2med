@@ -768,7 +768,11 @@ class DiffusionTrainer:
         # schedule. Never mutate the training DDPM timestep sequence.
         for key in ("betas", "alphas", "alphas_cumprod"):
             setattr(scheduler, key, getattr(owner.scheduler, key).detach().clone().to(owner.device))
-        scheduler.final_alpha_cumprod = scheduler.final_alpha_cumprod.to(owner.device)
+        # final_alpha_cumprod is a DDIM-only attribute (the last-step alpha); DDPM
+        # schedulers do not carry it.
+        final = getattr(scheduler, "final_alpha_cumprod", None)
+        if final is not None:
+            scheduler.final_alpha_cumprod = final.to(owner.device)
         scheduler.set_timesteps(num_inference_steps or self.config.validation.preview.num_inference_steps,
                                 device=owner.device)
         return scheduler
