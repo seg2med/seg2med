@@ -49,10 +49,10 @@ import platform
 # 自动判断操作系统
 if platform.system().lower() == "linux":
     USE_TORCH_COMPILE = True
-    print("✅ Linux detected: enabling torch.compile()")
+    print("Linux detected: enabling torch.compile()")
 else:
     USE_TORCH_COMPILE = False
-    print("⚠️ Non-Linux OS detected (likely Windows): disabling torch.compile()")
+    print("Non-Linux OS detected (likely Windows): disabling torch.compile()")
 
 
 @register_model('ddpm2d_seg2med')
