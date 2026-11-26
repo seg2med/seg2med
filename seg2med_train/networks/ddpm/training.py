@@ -23,8 +23,10 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
-from generative.networks.schedulers import DDIMScheduler
+from generative.networks.schedulers import DDIMScheduler, DDPMScheduler
 from PIL import Image
+
+from .ranged_scheduler import RangedDDPMScheduler, clip_sample_range as _clip_range
 
 logger = logging.getLogger(__name__)
 
@@ -504,8 +506,7 @@ class DiffusionTrainer:
         options = self.config.validation.preview
         if not options.enabled:
             return []
-        if options.sampler != "ddim" or not 1 <= options.num_inference_steps <= self.owner.scheduler.num_train_timesteps:
-            raise ValueError("Previews require sampler: ddim and 1..num_train_timesteps inference steps.")
+        self._check_sampler("preview", options.sampler, options.num_inference_steps)
         if options.epoch_interval < 1 or options.num_samples < 1 or options.eta < 0:
             raise ValueError("Invalid preview interval, sample count, or eta.")
         if len(options.display_range) != 2 or options.display_range[0] >= options.display_range[1]:
@@ -564,8 +565,7 @@ class DiffusionTrainer:
         options = self.config.validation.volume_eval
         if not options.enabled:
             return []
-        if not 1 <= options.num_inference_steps <= self.owner.scheduler.num_train_timesteps:
-            raise ValueError("volume_eval.num_inference_steps must be within 1..num_train_timesteps.")
+        self._check_sampler("volume_eval", getattr(options, "sampler", "ddim"), options.num_inference_steps)
         if options.epoch_interval < 1 or options.num_volumes < 1 or options.batch_size < 1 or options.eta < 0:
             raise ValueError("Invalid volume_eval interval, volume count, batch size, or eta.")
         patients = {}
@@ -600,19 +600,36 @@ class DiffusionTrainer:
         """Weights used for validation and sampling: EMA when enabled."""
         return self.ema.model if self.ema is not None else unwrap(self.owner.model)
 
-    def _ddim_sample(self, model, image, source, condition, scheduler, eta, generator=None):
+    def _check_sampler(self, setting, sampler, num_inference_steps):
+        """Validation of preview/volume_eval sampler options (ddim or full-trajectory ddpm)."""
+        num_train = self.owner.scheduler.num_train_timesteps
+        if sampler == "ddim":
+            if not 1 <= num_inference_steps <= num_train:
+                raise ValueError(f"{setting} requires 1..num_train_timesteps DDIM inference steps.")
+        elif sampler == "ddpm":
+            if num_inference_steps != num_train:
+                raise ValueError(f"{setting} with sampler: ddpm requires num_inference_steps == "
+                                 "num_train_timesteps (the full posterior trajectory).")
+        else:
+            raise ValueError(f"{setting}.sampler must be 'ddim' or 'ddpm'.")
+
+    def _sample_loop(self, model, image, source, condition, scheduler, eta, generator=None):
         owner = self.owner
+        is_ddim = isinstance(scheduler, DDIMScheduler)
         for timestep in scheduler.timesteps:
             step = torch.full((image.shape[0],), int(timestep), device=owner.device, dtype=torch.long)
             # Prediction adapters add training noise, so call the model
-            # directly here on an already noisy DDIM sample + prior.
+            # directly here on an already noisy sample + prior.
             arguments = {"x": torch.cat([image, source], dim=1), "timesteps": step}
             if getattr(owner, "class_embed_condition", False):
                 arguments["context" if owner.guide_by_context else "class_labels"] = condition
             else:
                 arguments["context"] = condition
             predicted = model(**arguments)
-            image, _ = scheduler.step(predicted.float(), int(timestep), image, eta=eta, generator=generator)
+            if is_ddim:
+                image, _ = scheduler.step(predicted.float(), int(timestep), image, eta=eta, generator=generator)
+            else:
+                image, _ = scheduler.step(predicted.float(), int(timestep), image, generator=generator)
         return image
 
     def _broadcast(self, metrics):
@@ -644,7 +661,8 @@ class DiffusionTrainer:
                 if volume in selected:
                     volumes[volume].append(row)
             model = self.eval_model()
-            scheduler = self._ddim_scheduler(options.num_inference_steps)
+            sampler = getattr(options, "sampler", "ddim")
+            scheduler = self._inference_scheduler(sampler, options.num_inference_steps)
             for record in self.volume_records:
                 rows = sorted(volumes[record["volume_id"]], key=lambda row: row["sample_id"])
                 generator = torch.Generator().manual_seed(record["seed"])
@@ -658,7 +676,7 @@ class DiffusionTrainer:
                     noise = (shared.expand(len(chunk), *shape) if shared is not None
                              else torch.stack([create(shape, generator=generator) for _ in chunk]))
                     with torch.autocast(device_type=owner.device.type, enabled=owner.device.type == "cuda"):
-                        image = self._ddim_sample(model, noise.to(owner.device), source, condition,
+                        image = self._sample_loop(model, noise.to(owner.device), source, condition,
                                                   scheduler, options.eta, generator)
                     outputs.append(image[:, 0].float().cpu().numpy())
                     targets.append(target[:, 0].float().cpu().numpy())
@@ -672,7 +690,8 @@ class DiffusionTrainer:
                                         .astype(np.uint8) for panel in panels], axis=1)
                 Image.fromarray(image).save(folder / (hashlib.sha256(record["volume_id"].encode()).hexdigest()[:16] + ".png"))
         self._json(folder / "volume_metrics.json", {
-            "epoch": epoch, "global_step": self.global_step, "num_inference_steps": options.num_inference_steps,
+            "epoch": epoch, "global_step": self.global_step, "sampler": sampler,
+            "num_inference_steps": options.num_inference_steps,
             "eta": options.eta, "shared_volume_noise": bool(self.config.validation.shared_volume_noise),
             "ema": self.ema is not None, "panel_order": ["generated_reformat_1", "real_reformat_1",
                                                          "generated_reformat_2", "real_reformat_2"],
@@ -726,11 +745,25 @@ class DiffusionTrainer:
             raise ValueError("Nonfinite validation metric; refusing checkpoint selection.")
         return metrics
 
-    def _ddim_scheduler(self, num_inference_steps=None):
+    def _inference_scheduler(self, sampler, num_inference_steps=None):
+        """DDIM or DDPM inference scheduler copying the training schedule.
+
+        DDPM also carries the training scheduler's clip_sample_range (a plain
+        DDPMScheduler behaves as [-1, 1]; RangedDDPMScheduler applies the
+        configured range inside every posterior step).
+        """
         owner = self.owner
-        scheduler = DDIMScheduler(num_train_timesteps=owner.scheduler.num_train_timesteps,
-                                  prediction_type=owner.scheduler.prediction_type,
-                                  clip_sample=owner.scheduler.clip_sample)
+        if sampler == "ddim":
+            scheduler = DDIMScheduler(num_train_timesteps=owner.scheduler.num_train_timesteps,
+                                      prediction_type=owner.scheduler.prediction_type,
+                                      clip_sample=owner.scheduler.clip_sample)
+        elif sampler == "ddpm":
+            scheduler = RangedDDPMScheduler(num_train_timesteps=owner.scheduler.num_train_timesteps,
+                                            prediction_type=owner.scheduler.prediction_type,
+                                            clip_sample=owner.scheduler.clip_sample)
+            scheduler.clip_sample_range = tuple(_clip_range(owner.scheduler))
+        else:
+            raise ValueError(f"Unknown sampler: {sampler!r}")
         # Copy the actual training schedule, including any nondefault beta
         # schedule. Never mutate the training DDPM timestep sequence.
         for key in ("betas", "alphas", "alphas_cumprod"):
@@ -749,7 +782,7 @@ class DiffusionTrainer:
         folder.mkdir(parents=True, exist_ok=True)
         generated_metrics, metadata = [], []
         with evaluation(owner.model):
-            scheduler = self._ddim_scheduler()
+            scheduler = self._inference_scheduler(options.sampler, options.num_inference_steps)
             for row in samples(owner.val_loader, owner.keys):
                 if row["sample_id"] not in selected:
                     continue
@@ -757,7 +790,7 @@ class DiffusionTrainer:
                 source, target, batch, condition = tensors([row], owner)
                 generator = torch.Generator().manual_seed(record["seed"])
                 image = torch.randn(tuple(target.shape), generator=generator).to(owner.device)
-                image = self._ddim_sample(self.eval_model(), image, source, condition, scheduler,
+                image = self._sample_loop(self.eval_model(), image, source, condition, scheduler,
                                           options.eta, generator)
                 minimum, maximum = options.display_range
                 panels = []
